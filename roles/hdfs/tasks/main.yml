@@ -1,0 +1,63 @@
+- name: Install Java (required by Hadoop)
+  apt:
+    name: openjdk-11-jdk
+    state: present
+    update_cache: yes
+
+- name: Create Hadoop install directory
+  file:
+    path: /opt/hadoop
+    state: directory
+    mode: "0755"
+
+- name: Download Hadoop
+  get_url:
+    url: https://downloads.apache.org/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz
+    dest: /tmp/hadoop.tar.gz
+
+- name: Extract Hadoop
+  unarchive:
+    src: /tmp/hadoop.tar.gz
+    dest: /opt/hadoop
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+
+- name: Set environment variables
+  copy:
+    dest: /etc/profile.d/hadoop.sh
+    content: |
+      export HADOOP_HOME=/opt/hadoop
+      export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+      export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+    mode: "0755"
+
+- name: Configure core-site.xml
+  copy:
+    src: core-site.xml
+    dest: /opt/hadoop/etc/hadoop/core-site.xml
+
+- name: Configure hdfs-site.xml
+  copy:
+    src: hdfs-site.xml
+    dest: /opt/hadoop/etc/hadoop/hdfs-site.xml
+
+- name: Format HDFS namenode (only if not formatted)
+  command: /opt/hadoop/bin/hdfs namenode -format -force
+  args:
+    creates: /tmp/hadoop-hdfs/dfs/name
+  environment:
+    JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+
+- name: Template HDFS systemd service
+  template:
+    src: hdfs.service.j2
+    dest: /etc/systemd/system/hdfs.service
+
+- name: Reload systemd
+  command: systemctl daemon-reload
+
+- name: Enable HDFS service
+  command: systemctl enable hdfs
+
+- name: Start HDFS service
+  command: systemctl start hdfs

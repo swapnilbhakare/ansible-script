@@ -1,0 +1,13 @@
+[Unit]
+Description=Apache Spark Master
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/opt/spark/sbin/start-master.sh
+ExecStop=/opt/spark/sbin/stop-master.sh
+Restart=on-abnormal
+User=root
+
+[Install]
+WantedBy=multi-user.target

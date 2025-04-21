@@ -1,0 +1,94 @@
+- name: Get nginx and backend service config from old VM
+  hosts: old
+  gather_facts: no
+  tasks:
+    - name: Read nginx.conf content
+      slurp:
+        src: /etc/nginx/nginx.conf
+      register: nginx_conf
+
+    - name: Read default site config
+      slurp:
+        src: /etc/nginx/sites-available/default
+      register: nginx_default_site
+
+    - name: Check for custom nginx systemd unit
+      stat:
+        path: /etc/systemd/system/nginx.service
+      register: custom_nginx_unit
+
+    - name: Read nginx systemd unit file
+      slurp:
+        src: "{{ '/etc/systemd/system/nginx.service' if custom_nginx_unit.stat.exists else '/lib/systemd/system/nginx.service' }}"
+      register: nginx_systemd_unit
+
+    - name: Read backend systemd unit file
+      slurp:
+        src: /etc/systemd/system/backend.service
+      register: backend_systemd_unit
+
+    - name: Set facts for use on new VM (stored on old host)
+      set_fact:
+        nginx_conf_content: "{{ nginx_conf.content | b64decode }}"
+        nginx_default_site_content: "{{ nginx_default_site.content | b64decode }}"
+        nginx_systemd_unit_content: "{{ nginx_systemd_unit.content | b64decode }}"
+        backend_systemd_unit_content: "{{ backend_systemd_unit.content | b64decode }}"
+
+- name: Install NGINX, copy configs and systemd services on new VM
+  hosts: new
+  gather_facts: yes
+  become: true
+  tasks:
+    - name: Install NGINX
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Write nginx.conf
+      copy:
+        content: "{{ hostvars['old']['nginx_conf_content'] }}"
+        dest: /etc/nginx/nginx.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Write default site config
+      copy:
+        content: "{{ hostvars['old']['nginx_default_site_content'] }}"
+        dest: /etc/nginx/sites-available/default
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Write nginx systemd unit file
+      copy:
+        content: "{{ hostvars['old']['nginx_systemd_unit_content'] }}"
+        dest: /etc/systemd/system/nginx.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Write backend systemd unit file
+      copy:
+        content: "{{ hostvars['old']['backend_systemd_unit_content'] }}"
+        dest: /etc/systemd/system/backend.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and restart NGINX (auto-start on boot)
+      systemd:
+        name: nginx
+        state: restarted
+        enabled: yes
+
+    - name: Enable and restart backend (auto-start on boot)
+      systemd:
+        name: backend
+        state: restarted
+        enabled: yes

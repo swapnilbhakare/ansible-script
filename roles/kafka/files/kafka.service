@@ -1,0 +1,12 @@
+[Unit]
+Description=Apache Kafka Server
+After=network.target
+
+[Service]
+User=new-azureuser
+Group=new-azureuser
+ExecStart=/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties
+Restart=on-abnormal
+
+[Install]
+WantedBy=multi-user.target

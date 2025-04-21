@@ -1,0 +1,9 @@
+- name: Bootstrap Iceberg stack on new-vm
+  hosts: new-vm
+  become: true
+
+  roles:
+    - hdfs
+    - kafka
+    - spark
+

@@ -1,0 +1,111 @@
+# - name: Copy NiFi and Airflow with systemd services to new VM
+#   hosts: localhost
+#   become: false
+
+#   tasks:
+#     - name: Archive NiFi, Airflow, and services on old VM (clean /opt structure)
+#       delegate_to: old
+#       shell: |
+#         mkdir -p /tmp/migration
+#         cd /opt && tar czf /tmp/migration/nifi.tar.gz nifi
+#         cd /opt && tar czf /tmp/migration/airflow.tar.gz airflow
+#         tar czf /tmp/migration/services.tar.gz \
+#           /etc/systemd/system/nifi.service \
+#           /etc/systemd/system/airflow-webserver.service \
+#           /etc/systemd/system/airflow-scheduler.service || true
+
+#     - name: Ensure local archive directory exists
+#       file:
+#         path: ./archives
+#         state: directory
+
+#     - name: Fetch NiFi and Airflow archives from old VM
+#       fetch:
+#         src: "/tmp/migration/{{ item }}"
+#         dest: "./archives/"
+#         flat: yes
+#       loop:
+#         - nifi.tar.gz
+#         - airflow.tar.gz
+#         - services.tar.gz
+#       delegate_to: old
+
+#     - name: Copy NiFi and Airflow archives to new VM
+#       copy:
+#         src: "./archives/{{ item }}"
+#         dest: "/tmp/{{ item }}"
+#       loop:
+#         - nifi.tar.gz
+#         - airflow.tar.gz
+#         - services.tar.gz
+#       delegate_to: new
+
+#     - name: Extract NiFi and Airflow to /opt/ on new VM
+#       delegate_to: new
+#       shell: |
+#         mkdir -p /opt/nifi /opt/airflow
+#         tar xzf /tmp/nifi.tar.gz -C /opt/
+#         tar xzf /tmp/airflow.tar.gz -C /opt/
+#         tar xzf /tmp/services.tar.gz -C /etc/systemd/system/
+
+#     - name: Reload systemd and enable/start services on new VM
+#       delegate_to: new
+#       shell: |
+#         systemctl daemon-reexec
+#         systemctl daemon-reload
+#         systemctl enable nifi || true
+#         systemctl enable airflow-webserver || true
+#         systemctl enable airflow-scheduler || true
+#         systemctl start nifi || true
+#         systemctl start airflow-webserver || true
+#         systemctl start airflow-scheduler || true
+
+- name: Deploy NiFi and Airflow from local archives to new VM
+  hosts: localhost
+  become: false
+
+  tasks:
+    - name: Copy NiFi and Airflow archives to new VM
+      copy:
+        src: "./archives/{{ item }}"
+        dest: "/tmp/{{ item }}"
+      loop:
+        - nifi.tar.gz
+        - airflow.tar.gz
+        - services.tar.gz
+      delegate_to: new
+
+    - name: Extract NiFi and Airflow to /opt/ and /etc/systemd/system on new VM
+      delegate_to: new
+      become: true
+      shell: |
+        mkdir -p /opt/nifi /opt/airflow
+        tar xzf /tmp/nifi.tar.gz -C /opt/
+        tar xzf /tmp/airflow.tar.gz -C /opt/
+        tar xzf /tmp/services.tar.gz -C /
+
+    - name: Recreate Airflow virtual environment on new VM
+      delegate_to: new
+      become: true
+      shell: |
+        if [ -f /opt/airflow/requirements.txt ]; then
+          python3 -m venv /opt/airflow/venv
+          source /opt/airflow/venv/bin/activate
+          pip install --upgrade pip
+          pip install -r /opt/airflow/requirements.txt
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Reload systemd and enable/start services on new VM
+      delegate_to: new
+      become: true
+      shell: |
+        systemctl daemon-reexec
+        systemctl daemon-reload
+        systemctl enable nifi || true
+        systemctl enable airflow-webserver || true
+        systemctl enable airflow-scheduler || true
+        systemctl start nifi || true
+        systemctl start airflow-webserver || true
+        systemctl start airflow-scheduler || true

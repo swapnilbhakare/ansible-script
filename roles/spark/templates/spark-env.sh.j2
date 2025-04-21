@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+export SPARK_MASTER_HOST="{{ ansible_fqdn }}"
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export SPARK_WORKER_CORES=8
+export SPARK_WORKER_MEMORY=32g
+export SPARK_LOCAL_DIRS=/tmp/spark

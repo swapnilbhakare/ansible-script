@@ -1,0 +1,65 @@
+- name: Install Java (required by Spark)
+  apt:
+    name: openjdk-11-jdk
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Create Spark install directory
+  file:
+    path: /opt/spark
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Download Apache Spark
+  get_url:
+    url: https://dlcdn.apache.org/spark/spark-3.4.4/spark-3.4.4-bin-hadoop3.tgz
+    dest: /tmp/spark.tgz
+  become: true
+
+- name: Extract Spark
+  unarchive:
+    src: /tmp/spark.tgz
+    dest: /opt/spark
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+  become: true
+
+- name: Set Spark environment variables
+  copy:
+    dest: /etc/profile.d/spark.sh
+    content: |
+      export SPARK_HOME=/opt/spark
+      export PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
+    mode: "0755"
+  become: true
+
+- name: Configure spark-env.sh
+  template:
+    src: spark-env.sh.j2
+    dest: /opt/spark/conf/spark-env.sh
+    mode: "0755"
+  become: true
+
+- name: Configure spark-defaults.conf
+  template:
+    src: spark-defaults.conf.j2
+    dest: /opt/spark/conf/spark-defaults.conf
+    mode: "0644"
+  become: true
+
+- name: Copy Spark systemd service
+  copy:
+    src: spark.service
+    dest: /etc/systemd/system/spark.service
+    mode: "0644"
+  become: true
+
+- name: Reload systemd and start Spark
+  systemd:
+    name: spark
+    enabled: true
+    state: restarted
+    daemon_reload: true
+  become: true

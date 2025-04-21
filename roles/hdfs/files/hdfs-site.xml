@@ -1,0 +1,21 @@
+<configuration>
+  <property>
+    <name>dfs.replication</name>
+    <value>3</value>
+  </property>
+
+  <property>
+    <name>dfs.blocksize</name>
+    <value>268435456</value> <!-- 256MB blocks -->
+  </property>
+
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///data/hadoop/hdfs/namenode</value>
+  </property>
+
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///data/hadoop/hdfs/datanode</value>
+  </property>
+</configuration>

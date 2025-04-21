@@ -1,0 +1,30 @@
+# broker.id: use a var or fallback to 0
+broker.id={{ (broker_id | default('0')) | int }}
+
+# Data directories
+log.dirs=/data/kafka
+
+# Networking
+listeners=PLAINTEXT://:9092
+advertised.listeners=PLAINTEXT://{{ ansible_fqdn }}:9092
+num.network.threads=8
+num.io.threads=16
+
+# Log management
+log.retention.hours=168
+log.segment.bytes=1073741824
+log.retention.check.interval.ms=300000
+num.partitions=12
+default.replication.factor=2
+min.insync.replicas=2
+
+# Zookeeper (single‑node fallback)
+zookeeper.connect={{ zookeeper_connect | default('localhost:2181') }}
+zookeeper.connection.timeout.ms=6000
+
+# Performance tuning
+socket.send.buffer.bytes=1048576
+socket.receive.buffer.bytes=1048576
+socket.request.max.bytes=104857600
+message.max.bytes=1000012
+replica.fetch.max.bytes=10485760

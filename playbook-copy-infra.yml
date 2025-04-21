@@ -1,0 +1,59 @@
+# playbook.yml
+- name: Copy Kafka, Spark, HDFS and systemd services to new VM
+  hosts: localhost
+  tasks:
+    - name: Archive Kafka, Spark, HDFS, and services on old VM
+      delegate_to: old
+      shell: |
+        mkdir -p /tmp/migration
+        tar czf /tmp/migration/kafka.tar.gz /opt/kafka
+        tar czf /tmp/migration/spark.tar.gz /opt/spark
+        tar czf /tmp/migration/hdfs.tar.gz /usr/local/hadoop /hdfs
+        tar czf /tmp/migration/services.tar.gz /etc/systemd/system/kafka.service /etc/systemd/system/hdfs.service /etc/systemd/system/spark.service || true
+
+    - name: Fetch archives from old VM
+      fetch:
+        src: "/tmp/migration/{{ item }}"
+        dest: "./archives/"
+        flat: yes
+      loop:
+        - kafka.tar.gz
+        - spark.tar.gz
+        - hdfs.tar.gz
+        - services.tar.gz
+      delegate_to: old
+
+    - name: Copy archives to new VM
+      copy:
+        src: "./archives/{{ item }}"
+        dest: "/tmp/{{ item }}"
+      loop:
+        - kafka.tar.gz
+        - spark.tar.gz
+        - hdfs.tar.gz
+        - services.tar.gz
+      delegate_to: new
+
+    - name: Extract Kafka, Spark, HDFS on new VM
+      delegate_to: new
+      shell: |
+        tar xzf /tmp/kafka.tar.gz -C /
+        tar xzf /tmp/spark.tar.gz -C /
+        tar xzf /tmp/hdfs.tar.gz -C /
+        tar xzf /tmp/services.tar.gz -C /
+
+    - name: Reload systemd on new VM
+      delegate_to: new
+      shell: |
+        systemctl daemon-reexec
+        systemctl daemon-reload
+
+    - name: Enable and start all services on new VM
+      delegate_to: new
+      shell: |
+        systemctl enable kafka || true
+        systemctl enable hdfs || true
+        systemctl enable spark || true
+        systemctl start kafka || true
+        systemctl start hdfs || true
+        systemctl start spark || true
